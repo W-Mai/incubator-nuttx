@@ -26,6 +26,9 @@ APPSDIR=$WD/../apps
 if [ -z $ARTIFACTDIR ]; then
   ARTIFACTDIR=$WD/../buildartifacts
 fi
+if [ -z $CODECHECKERLOGSDIR ]; then
+  CODECHECKERLOGSDIR=$WD/../codecheckerlogs
+fi
 MAKE_FLAGS=-k
 EXTRA_FLAGS="EXTRAFLAGS="
 MAKE=make
@@ -36,6 +39,7 @@ PRINTLISTONLY=0
 GITCLEAN=0
 SAVEARTIFACTS=0
 CHECKCLEAN=1
+CODECHECKER=0
 RUN=0
 
 case $(uname -s) in
@@ -57,7 +61,7 @@ esac
 
 function showusage {
   echo ""
-  echo "USAGE: $progname [-l|m|c|g|n] [-d] [-e <extraflags>] [-x] [-j <ncpus>] [-a <appsdir>] [-t <topdir>] [-p] [-G] <testlist-file>"
+  echo "USAGE: $progname [-l|m|c|g|n] [-d] [-e <extraflags>] [-x] [-j <ncpus>] [-a <appsdir>] [-t <topdir>] [-p] [-G] [--codechecker] <testlist-file>"
   echo "       $progname -h"
   echo ""
   echo "Where:"
@@ -80,6 +84,7 @@ function showusage {
   echo "         as well."
   echo "  -R execute \"run\" script in the config directories if exists."
   echo "  -h will show this help test and terminate"
+  echo "  --codechecker enables CodeChecker statically analyze the code."
   echo "  <testlist-file> selects the list of configurations to test.  No default"
   echo ""
   echo "Your PATH variable must include the path to both the build tools and the"
@@ -132,6 +137,9 @@ while [ ! -z "$1" ]; do
     ;;
   -R )
     RUN=1
+    ;;
+  --codechecker )
+    CODECHECKER=1
     ;;
   -h )
     showusage
@@ -208,10 +216,60 @@ function exportandimport {
   return $fail
 }
 
+function compressartifacts {
+  local target_path=$1
+  local target_name=$2
+
+  pushd $target_path >/dev/null
+
+  tar zcf ${target_name}.tar.gz ${target_name}
+  rm -rf ${target_name} 
+
+  popd >/dev/null
+}
+
 function makefunc {
-  if ! ${MAKE} ${MAKE_FLAGS} "${EXTRA_FLAGS}" ${JOPTION} $@ 1>/dev/null; then
+  build_cmd="${MAKE} ${MAKE_FLAGS} \"${EXTRA_FLAGS}\" ${JOPTION} $@ 1>/dev/null"
+  local codechecker_en=false
+  local need_analyze=false
+
+  if [ "X$@" != "Xdistclean" ] && [ "${CODECHECKER}" -eq 1 ]; then
+    codechecker_en=true    
+  fi
+
+  if [ "X$@" != "Xolddefconfig" ]; then
+    need_analyze=true
+  fi
+
+  local runname=${config/\//:}
+  local config_sub_path=$(echo $config | sed "s/:/\//")
+  local sub_target_name=${config_sub_path#`dirname $config_sub_path`/} 
+  local codechecker_logsdir=${CODECHECKERLOGSDIR}/logs/${config_sub_path}
+  
+  mkdir -p ${codechecker_logsdir}
+
+  if ${codechecker_en}; then
+    echo "    Checking NuttX by Codechecker..."
+    build_cmd="CodeChecker log -b '${build_cmd}' -o ${codechecker_logsdir}/codechecker_compilation.json 1>/dev/null"
+  fi
+ 
+  if ! eval $build_cmd; then
     fail=1
   else
+    if ${codechecker_en} && ${need_analyze}; then
+      echo "    Analyzing NuttX by Codechecker..."
+      CodeChecker analyze ${codechecker_logsdir}/codechecker_compilation.json --output ${codechecker_logsdir}/codechecker_reports --ctu --enable sensitive 1>/dev/null
+      echo "    Storing analysis result to CodeChecker..."
+      CodeChecker store ${codechecker_logsdir}/codechecker_reports --url ${BOARDSEL} -n ${runname} 1>/dev/null
+      echo "      Generating HTML report..." 
+      CodeChecker parse --export html --output ${codechecker_logsdir}/codechecker_reports_html ${codechecker_logsdir}/codechecker_reports 1>/dev/null
+      echo "      Generating summary.json..."
+      CodeChecker cmd sum --url ${BOARDSEL} -n ${runname} -o json > ${codechecker_logsdir}/summary.json 2>/dev/null
+      echo "      Generating summary.csv..."
+      CodeChecker cmd sum --url ${BOARDSEL} -n ${runname} -o csv > ${codechecker_logsdir}/summary.csv 2>/dev/null
+      echo "      Compressing logs..."
+      compressartifacts `dirname ${codechecker_logsdir}` ${sub_target_name}
+    fi
     exportandimport
   fi
 
@@ -336,7 +394,6 @@ function dotest {
   echo "===================================================================================="
   config=`echo $1 | cut -d',' -f1`
   check=${HOST},${config/\//:}
-
   skip=0
   for re in $blacklist; do
     if [[ "${check}" =~ ${re:1}$ ]]; then
@@ -392,7 +449,6 @@ function dotest {
 }
 
 # Perform the build test for each entry in the test list file
-
 for line in $testlist; do
   firstch=${line:0:1}
   if [ "X$firstch" == "X/" ]; then

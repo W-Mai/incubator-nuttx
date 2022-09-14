@@ -119,10 +119,11 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DOCKER_BUILDKIT: 1
+      CODECHECKER_FAIL: false
 
     strategy:
       matrix:
-        boards: [arm-01, arm-02, arm-03, arm-04, arm-05, arm-06, arm-07, arm-08, arm-09, arm-10, arm-11, arm-12, arm-13, other, risc-v, sim-01, sim-02, xtensa]
+        boards: [arm-01, arm-02, arm-03, arm-04, arm-05, arm-06, arm-07, arm-08, arm-09, arm-10, arm-11, arm-12, arm-13, other, risc-v, sim-01, sim-02, xtensa, codechecker]
 
     steps:
       - name: Download Source Artifact
@@ -157,16 +158,36 @@ jobs:
             export CCACHE_DIR=`pwd`/ccache
             mkdir $CCACHE_DIR
             export ARTIFACTDIR=`pwd`/buildartifacts
+            export CODECHECKERLOGSDIR=`pwd`/codecheckerlogs
+            export BOARDSEL=${{matrix.boards}}
             git config --global --add safe.directory /github/workspace/sources/nuttx
             git config --global --add safe.directory /github/workspace/sources/apps
             cd sources/nuttx/tools/ci
-            ./cibuild.sh -A -R -c testlist/${{matrix.boards}}.dat
+            if [ "X${BOARDSEL}" = "Xcodechecker" ]; then
+              ./runcodechecker.sh -s -n "${BOARDSEL}" -w $CODECHECKERLOGSDIR/databases/${BOARDSEL}_db
+              ./cibuild.sh -A -R -c --codechecker testlist/${BOARDSEL}.dat
+              if ${{ env.CODECHECKER_FAIL }}; then
+                ./runcodechecker.sh --sum -n ${BOARDSEL} --err -k -c --rm -w $CODECHECKERLOGSDIR/databases/${BOARDSEL}_db
+              else
+                ./runcodechecker.sh --sum -n ${BOARDSEL} -k -c --rm -w $CODECHECKERLOGSDIR/databases/${BOARDSEL}_db
+              fi
+            else
+              ./cibuild.sh -A -R -c testlist/${BOARDSEL}.dat
+            fi
             ccache -s
 
       - uses: actions/upload-artifact@v3
         with:
           name: linux-builds
           path: buildartifacts/
+        continue-on-error: true
+      
+      - name: Upload CodeChecker Logs 
+        if: ${{ matrix.boards == 'codechecker' && always() }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: codechecker-logs
+          path: codecheckerlogs/
         continue-on-error: true
 
   macOS:
