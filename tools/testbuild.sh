@@ -227,7 +227,7 @@ function makefunc {
 
   local runname=${config/\//:}
   
-  codechecker_logsdir=${CODECHECKERLOGSDIR}/$(echo $config | sed "s/:/\//")
+  codechecker_logsdir=${CODECHECKERLOGSDIR}/logs/$(echo $config | sed "s/:/\//")
   mkdir -p ${codechecker_logsdir} 
   if ${codechecker_en}; then
     echo "    Checking NuttX by Codechecker..."

@@ -162,7 +162,7 @@ jobs:
             git config --global --add safe.directory /github/workspace/sources/nuttx
             git config --global --add safe.directory /github/workspace/sources/apps
             pushd sources/nuttx/tools/ci
-            ./runcodecher.sh -s -n "${BOARDSEL}" -w $CODECHECKERLOGSDIR/${BOARDSEL}_db
+            ./runcodecher.sh -s -n "${BOARDSEL}" -w $CODECHECKERLOGSDIR/databases/${BOARDSEL}_db
             ./cibuild.sh -A -R -c testlist/${BOARDSEL}.dat
             ./runcodecher.sh -k
             ccache -s
