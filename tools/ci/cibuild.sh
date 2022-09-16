@@ -26,6 +26,8 @@
 set -e
 set -o xtrace
 
+ls -al
+
 WD=$(cd "$(dirname "$0")" && pwd)
 WORKSPACE=$(cd "${WD}"/../../../ && pwd -P)
 nuttx=${WORKSPACE}/nuttx
