@@ -158,11 +158,12 @@ jobs:
             mkdir $CCACHE_DIR
             export ARTIFACTDIR=`pwd`/buildartifacts
             export CODECHECKERLOGSDIR=`pwd`/codecheckerlogs
+            export BOARDSEL=${{matrix.boards}}
             git config --global --add safe.directory /github/workspace/sources/nuttx
             git config --global --add safe.directory /github/workspace/sources/apps
             pushd sources/nuttx/tools/ci
-            ./runcodecher.sh -s -n ${{matrix.boards}} -w $CODECHECKERLOGSDIR/${{matrix.boards}}_db
-            ./cibuild.sh -A -R -c testlist/${{matrix.boards}}.dat
+            ./runcodecher.sh -s -n "${BOARDSEL}" -w $CODECHECKERLOGSDIR/${BOARDSEL}_db
+            ./cibuild.sh -A -R -c testlist/${BOARDSEL}.dat
             ./runcodecher.sh -k
             ccache -s
 

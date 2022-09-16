@@ -17,7 +17,7 @@
 # under the License.
 #
 
-CODECHECKERPID=codechecker.pid
+CODECHECKERPID=codechecker.pid.o
 
 WORKSPACE=~/.codechecker
 
