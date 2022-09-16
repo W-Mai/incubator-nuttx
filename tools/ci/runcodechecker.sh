@@ -18,14 +18,17 @@
 #
 
 CODECHECKERPID=codechecker.pid
+SERVERSCHM=http
 SERVERHOST=0.0.0.0
 SERVERPORT=8001
+SERVERADDR=${SERVERHOST}:${SERVERPORT}
+SERVERURL=${SERVERSCHM}://${SERVERADDR}
 
 NEEDSTART=false
 
 function health_check {
   tries=1
-  until wget --spider -q $SERVERHOST:$SERVERPORT ;  do
+  until wget --spider -q ${SERVERURL} ;  do
     sleep 2
     echo Waiting for CodeChecker Webserver start...\(tries ${tries} times\)
     let tries++
@@ -33,7 +36,7 @@ function health_check {
 }
 
 function start_server {
-  CodeChecker server --host $SERVERHOST -v $SERVERPORT -w /codessss > /dev/null  & echo $! > ${CODECHECKERPID}
+  CodeChecker server --host ${SERVERHOST} -v ${SERVERPORT} -w /codessss > /dev/null  & echo $! > ${CODECHECKERPID}
 
   # Health check and block the code.
   health_check
@@ -55,7 +58,7 @@ function kill_server {
 function add_products {
   # Health check and block the code.
   health_check
-  CodeChecker cmd products add $1 --url http://$SERVERHOST:$SERVERPORT/
+  CodeChecker cmd products add $1 --url ${SERVERURL}
 }
 
 while [ ! -z "$1" ]; do
