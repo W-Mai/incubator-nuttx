@@ -157,16 +157,25 @@ jobs:
             export CCACHE_DIR=`pwd`/ccache
             mkdir $CCACHE_DIR
             export ARTIFACTDIR=`pwd`/buildartifacts
+            export CODECHECKERLOGSDIR=`pwd`/codecheckerlogs
             git config --global --add safe.directory /github/workspace/sources/nuttx
             git config --global --add safe.directory /github/workspace/sources/apps
-            cd sources/nuttx/tools/ci
+            pushd sources/nuttx/tools/ci
+            ./runcodecher.sh -s -n ${{matrix.boards}} -w $CODECHECKERLOGSDIR/${{matrix.boards}}_db
             ./cibuild.sh -A -R -c testlist/${{matrix.boards}}.dat
+            ./runcodecher.sh -k
             ccache -s
 
       - uses: actions/upload-artifact@v3
         with:
           name: linux-builds
           path: buildartifacts/
+        continue-on-error: true
+      
+      - uses: actions/upload-artifact@v3
+        with:
+          name: codechecker-logs
+          path: codecheckerlogs/
         continue-on-error: true
 
   macOS:
