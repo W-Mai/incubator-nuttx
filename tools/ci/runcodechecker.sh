@@ -21,6 +21,8 @@ CODECHECKERPID=codechecker.pid
 SERVERHOST=0.0.0.0
 SERVERPORT=8001
 
+NEEDSTART=false
+
 function health_check {
   tries=1
   until wget --spider -q $SERVERHOST:$SERVERPORT ;  do
@@ -66,7 +68,7 @@ while [ ! -z "$1" ]; do
     product_name="${1}"
     ;;
   -s )
-    start_server
+    NEEDSTART=true
     ;;
   * )
     shift
@@ -76,3 +78,6 @@ while [ ! -z "$1" ]; do
   shift
 done
 
+if $NEEDSTART; then
+  start_server
+fi
