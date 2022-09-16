@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# tools/ci/runcodechecker.sh
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.  The
+# ASF licenses this file to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance with the
+# License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+# License for the specific language governing permissions and limitations
+# under the License.
+#
+
+CODECHECKERPID=codechecker.pid
+SERVERHOST=0.0.0.0
+SERVERPORT=8001
+
+function health_check {
+  tries=1
+  until wget --spider -q $SERVERHOST:$SERVERPORT ;  do
+    sleep 2
+    echo Waiting for CodeChecker Webserver start...\(tries ${tries} times\)
+    let tries++
+  done
+}
+
+function start_server {
+  CodeChecker server --host $SERVERHOST -v $SERVERPORT -w /codessss > /dev/null  & echo $! > ${CODECHECKERPID}
+
+  # Health check and block the code.
+  health_check
+
+  # If has product name, add new product to CodeChecker Server.
+  if [ "${product_name}" != "" ]; then
+    add_products ${product_name}
+  fi 
+}
+
+function kill_server {
+  pid_=`cat ${CODECHECKERPID}`
+  kill "${pid_}"
+  rm ${CODECHECKERPID}
+
+  echo "CodeChecker Webserver has been killed."
+}
+
+function add_products {
+  # Health check and block the code.
+  health_check
+  CodeChecker cmd products add $1 --url http://$SERVERHOST:$SERVERPORT/
+}
+
+while [ ! -z "$1" ]; do
+  case $1 in
+  -k )
+    kill_server
+    ;;
+  -n )
+    shift
+    product_name="${1}"
+    ;;
+  -s )
+    start_server
+    ;;
+  * )
+    shift
+    break
+    ;;
+  esac
+  shift
+done
+
