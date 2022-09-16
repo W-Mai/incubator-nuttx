@@ -18,6 +18,9 @@
 #
 
 CODECHECKERPID=codechecker.pid
+
+WORKSPACE=~/.codechecker
+
 SERVERSCHM=http
 SERVERHOST=0.0.0.0
 SERVERPORT=8001
@@ -36,7 +39,7 @@ function health_check {
 }
 
 function start_server {
-  CodeChecker server --host ${SERVERHOST} -v ${SERVERPORT} -w /codessss > /dev/null  & echo $! > ${CODECHECKERPID}
+  CodeChecker server --host ${SERVERHOST} -v ${SERVERPORT} -w ${WORKSPACE} > /dev/null  & echo $! > ${CODECHECKERPID}
 
   # Health check and block the code.
   health_check
@@ -72,6 +75,10 @@ while [ ! -z "$1" ]; do
     ;;
   -s )
     NEEDSTART=true
+    ;;
+  -w )
+    shift
+    WORKSPACE="${1}"
     ;;
   * )
     shift
