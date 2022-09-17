@@ -218,11 +218,15 @@ function exportandimport {
 
 function makefunc {
   build_cmd="${MAKE} ${MAKE_FLAGS} \"${EXTRA_FLAGS}\" ${JOPTION} $@ 1>/dev/null"
+  local codechecker_en=false
+  local need_analyze=false
 
   if [ "X$@" != "Xdistclean" ] && [ "${CODECHECKER}" -eq 1 ]; then
-    local codechecker_en=true
-  else
-    local codechecker_en=false
+    codechecker_en=true    
+  fi
+
+  if [ "X$@" != "Xolddefconfig" ]; then
+    need_analyze=true
   fi
 
   local runname=${config/\//:}
@@ -237,12 +241,16 @@ function makefunc {
   if ! eval $build_cmd; then
     fail=1
   else
-    if ${codechecker_en}; then
-      echo "    Analyze NuttX by Codechecker..."
+    if ${codechecker_en} && ${need_analyze}; then
+      echo "    Analyzing NuttX by Codechecker..."
       CodeChecker analyze ${codechecker_logsdir}/codechecker_compilation.json --output ${codechecker_logsdir}/codechecker_reports --ctu --enable sensitive 1>/dev/null
-      echo "    Store analysis result to CodeChecker..."
+      echo "    Storing analysis result to CodeChecker..."
       CodeChecker store ${codechecker_logsdir}/codechecker_reports --url ${BOARDSEL} -n ${runname} 1>/dev/null
+      echo "      Generating HTML report..." 
+      CodeChecker parse --export html --output ${codechecker_logsdir}/codechecker_reports_html ${codechecker_logsdir}/codechecker_reports 1>/dev/null
+      echo "      Generating summary.json..."
       CodeChecker cmd sum --url ${BOARDSEL} -n ${runname} -o json > ${codechecker_logsdir}/summary.json 2>/dev/null
+      echo "      Generating summary.csv..."
       CodeChecker cmd sum --url ${BOARDSEL} -n ${runname} -o csv > ${codechecker_logsdir}/summary.csv 2>/dev/null
     fi
     exportandimport

@@ -17,7 +17,9 @@
 # under the License.
 #
 
-CODECHECKERPID=codechecker.pid.o
+CWD=$(cd "$(dirname "$0")" && pwd)
+WORKSPACE=$(cd "${WD}"/../../../ && pwd -P)
+CODECHECKERPID=${WORKSPACE}/codechecker.pid.o
 
 WORKSPACE=~/.codechecker
 
