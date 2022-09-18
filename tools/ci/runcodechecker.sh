@@ -18,8 +18,8 @@
 #
 
 CWD=$(cd "$(dirname "$0")" && pwd)
-WORKSPACE=$(cd "${WD}"/../../../ && pwd -P)
-CODECHECKERPID=${WORKSPACE}/codechecker.pid.o
+WS=$(cd "${CWD}"/../../../ && pwd -P)
+CODECHECKERPID=${WS}/codechecker.pid.o
 
 WORKSPACE=~/.codechecker
 
@@ -30,6 +30,9 @@ SERVERADDR=${SERVERHOST}:${SERVERPORT}
 SERVERURL=${SERVERSCHM}://${SERVERADDR}
 
 NEEDSTART=false
+NEEDKILL=false
+NEEDCOMPRESS=false
+NEEDRM=false
 
 function health_check {
   tries=1
@@ -66,10 +69,24 @@ function add_products {
   CodeChecker cmd products add $1 --url ${SERVERURL}
 }
 
+function compress_database {
+  path=`dirname ${WORKSPACE}`
+  pushd $path
+  local name=${WORKSPACE#${path}/}
+
+  tar zcf ${name}.tar.gz ${name}
+
+  if $1; then
+    rm -rf $WORKSPACE
+  fi
+
+  popd
+}
+
 while [ ! -z "$1" ]; do
   case $1 in
   -k )
-    kill_server
+    NEEDKILL=true
     ;;
   -n )
     shift
@@ -82,6 +99,12 @@ while [ ! -z "$1" ]; do
     shift
     WORKSPACE="${1}"
     ;;
+  -c )
+    NEEDCOMPRESS=true
+    ;;
+  --rm )
+    NEEDRM=true
+    ;;
   * )
     shift
     break
@@ -92,4 +115,12 @@ done
 
 if $NEEDSTART; then
   start_server
+fi
+
+if $NEEDKILL; then
+  kill_server
+fi
+
+if $NEEDCOMPRESS; then
+  compress_database $NEEDRM
 fi

@@ -216,6 +216,18 @@ function exportandimport {
   return $fail
 }
 
+function compressartifacts {
+  local target_path=$1
+  local target_name=$2
+
+  pushd $target_path >/dev/null
+
+  tar zcf ${target_name}.tar.gz ${target_name}
+  rm -rf ${target_name} 
+
+  popd >/dev/null
+}
+
 function makefunc {
   build_cmd="${MAKE} ${MAKE_FLAGS} \"${EXTRA_FLAGS}\" ${JOPTION} $@ 1>/dev/null"
   local codechecker_en=false
@@ -230,9 +242,12 @@ function makefunc {
   fi
 
   local runname=${config/\//:}
+  local config_sub_path=$(echo $config | sed "s/:/\//")
+  local sub_target_name=${config_sub_path#`dirname $config_sub_path`/} 
+  local codechecker_logsdir=${CODECHECKERLOGSDIR}/logs/${config_sub_path}
   
-  codechecker_logsdir=${CODECHECKERLOGSDIR}/logs/$(echo $config | sed "s/:/\//")
-  mkdir -p ${codechecker_logsdir} 
+  mkdir -p ${codechecker_logsdir}
+
   if ${codechecker_en}; then
     echo "    Checking NuttX by Codechecker..."
     build_cmd="CodeChecker log -b '${build_cmd}' -o ${codechecker_logsdir}/codechecker_compilation.json 1>/dev/null"
@@ -252,6 +267,8 @@ function makefunc {
       CodeChecker cmd sum --url ${BOARDSEL} -n ${runname} -o json > ${codechecker_logsdir}/summary.json 2>/dev/null
       echo "      Generating summary.csv..."
       CodeChecker cmd sum --url ${BOARDSEL} -n ${runname} -o csv > ${codechecker_logsdir}/summary.csv 2>/dev/null
+      echo "      Compressing logs..."
+      compressartifacts `dirname ${codechecker_logsdir}` ${sub_target_name}
     fi
     exportandimport
   fi
