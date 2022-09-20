@@ -1,1 +1,4 @@
+# Select a random set of targets to check. If you need to check a specific target, write the target list in this file.
+# Make sure that the compilation check time does not exceed the average time.
+
 /sim/*/*/*/[r-w]*
