@@ -162,13 +162,13 @@ jobs:
             git config --global --add safe.directory /github/workspace/sources/nuttx
             git config --global --add safe.directory /github/workspace/sources/apps
             cd sources/nuttx/tools/ci
-            ./runcodechecker.sh -s -n "${BOARDSEL}" -w $CODECHECKERLOGSDIR/databases/${BOARDSEL}_db
             if [ "X${BOARDSEL}" = "Xcodechecker" ]; then
+              ./runcodechecker.sh -s -n "${BOARDSEL}" -w $CODECHECKERLOGSDIR/databases/${BOARDSEL}_db
               ./cibuild.sh -A -R -c --codechecker testlist/${BOARDSEL}.dat
+              ./runcodechecker.sh -k -c --rm -w $CODECHECKERLOGSDIR/databases/${BOARDSEL}_db 
             else
               ./cibuild.sh -A -R -c testlist/${BOARDSEL}.dat
             fi
-            ./runcodechecker.sh -k -c --rm -w $CODECHECKERLOGSDIR/databases/${BOARDSEL}_db 
             ccache -s
 
       - uses: actions/upload-artifact@v3
