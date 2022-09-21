@@ -177,7 +177,8 @@ jobs:
           path: buildartifacts/
         continue-on-error: true
       
-      - uses: actions/upload-artifact@v3
+      - if: ${{ matrix.boards == "codechecker" }}
+        uses: actions/upload-artifact@v3
         with:
           name: codechecker-logs
           path: codecheckerlogs/
