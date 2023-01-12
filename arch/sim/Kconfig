@@ -591,4 +591,35 @@ config SIM_UART3_NAME
 
 endmenu
 
+config SIM_IOEXPANDER
+	bool "Simulated IOExpander"
+	default n
+	select IOEXPANDER
+	---help---
+		Build in support for simulated ioexpander port
+
+if SIM_IOEXPANDER
+
+choice
+	prompt "Simulated IOExpander Type"
+	default SIM_IOEXPANDER_LINUX
+
+config SIM_IOEXPANDER_LINUX
+	bool "Linux IOExpander Character Dev"
+	depends on HOST_MACOS
+	---help---
+		Use device like CH341.
+
+endchoice
+
+config SIM_IOEXPANDER_NAME
+	string "the name of IOExpander host dev to attach to simulator"
+	default "/dev/gpiochip0"
+	depends on SIM_IOEXPANDER
+	---help---
+		This is the name of the IOExpander device on the host implementation to
+		attach to the simulator driver.
+
+endif
+
 endif # ARCH_SIM

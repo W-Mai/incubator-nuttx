@@ -372,6 +372,13 @@ struct spi_dev_s *sim_spi_initialize(const char *filename);
 int sim_spi_uninitialize(struct spi_dev_s *dev);
 #endif
 
+/* sim_*ioexpander.c ********************************************************/
+
+#ifdef CONFIG_SIM_IOEXPANDER
+struct ioexpander_dev_s *sim_ioe_initialize(const char *filename);
+int sim_ioe_uninitialize(struct ioexpander_dev_s *dev);
+#endif
+
 /* up_video.c ***************************************************************/
 
 #ifdef CONFIG_SIM_VIDEO
