@@ -182,6 +182,10 @@ bool rp2040_clock_configure(int clk_index,
 
 void clocks_init(void)
 {
+  /* vreg_set_voltage(VREG_VOLTAGE_1_05) */
+
+  modbits_reg32(0b10100000, 0x000000f0, RP2040_VREG_AND_CHIP_RESET_BASE);
+
   /* Start tick in watchdog */
 
   putreg32((BOARD_XOSC_FREQ / MHZ) | RP2040_WATCHDOG_TICK_ENABLE,
