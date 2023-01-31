@@ -606,7 +606,7 @@ choice
 
 config SIM_IOEXPANDER_LINUX
 	bool "Linux IOExpander Character Dev"
-	depends on HOST_MACOS
+	depends on HOST_LINUX
 	---help---
 		Use device like CH341.
 
