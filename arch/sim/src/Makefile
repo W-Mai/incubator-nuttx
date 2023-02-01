@@ -65,6 +65,7 @@ CSRCS += sim_createstack.c sim_usestack.c sim_releasestack.c sim_stackframe.c
 CSRCS += sim_exit.c sim_schedulesigaction.c sim_switchcontext.c sim_heap.c
 CSRCS += sim_uart.c sim_copyfullstate.c sim_sigdeliver.c
 CSRCS += sim_registerdump.c sim_saveusercontext.c
+CSRCS += sim_ioexpander.c
 
 ifeq ($(CONFIG_SCHED_BACKTRACE),y)
 CSRCS += sim_backtrace.c
@@ -195,9 +196,9 @@ ifeq ($(CONFIG_SIM_SPI_LINUX),y)
   HOSTSRCS += sim_linuxspi.c
 endif
 
-ifeq ($(CONFIG_SIM_IOEXPANDER_LINUX),y)
-  HOSTSRCS += sim_linuxioexpander.c
-endif
+#ifeq ($(CONFIG_SIM_IOEXPANDER_LINUX),y)
+##  HOSTSRCS += sim_linuxioexpander.c
+#endif
 
 ifeq ($(CONFIG_RPTUN),y)
   CSRCS += sim_rptun.c

@@ -844,7 +844,7 @@ static int ioe_dummy_multireadpin(FAR struct ioexpander_dev_s *dev,
  *   an ioexpander_dev_s instance on success, NULL on failure.
  *
  ****************************************************************************/
-static void gpio_list(struct ioexpander_dev_s *dev);
+//static void gpio_list(struct ioexpander_dev_s *dev);
 
 FAR struct ioexpander_dev_s *sim_ioe_initialize(const char *filename)
 {
@@ -858,7 +858,7 @@ FAR struct ioexpander_dev_s *sim_ioe_initialize(const char *filename)
         // TODO: raise error
     }
 
-    gpio_list((struct ioexpander_dev_s *) priv);
+//    gpio_list((struct ioexpander_dev_s *) priv);
 
     /* Initialize the device state structure */
 
@@ -886,48 +886,48 @@ int sim_ioe_uninitialize(struct ioexpander_dev_s *dev)
     return close(priv->fd);
 }
 
-static void gpio_list(struct ioexpander_dev_s *dev)
-{
-    FAR struct linux_ioe_dev_s *priv = (FAR struct linux_ioe_dev_s *)dev;
-    struct gpiochip_info info;
-    struct gpioline_info line_info;
-    int fd, ret;
-    fd = priv->fd;
-    if (fd < 0)
-    {
-        printf("Unabled to open %s: %s", priv->filename, strerror(errno));
-        return;
-    }
-    ret = ioctl(fd, GPIO_GET_CHIPINFO_IOCTL, &info);
-    if (ret == -1)
-    {
-        printf("Unable to get chip info from ioctl: %s", strerror(errno));
-        close(fd);
-        return;
-    }
-    printf("Chip name: %s\n", info.name);
-    printf("Chip label: %s\n", info.label);
-    printf("Number of lines: %d\n", info.lines);
-
-    for (int i = 0; i < info.lines; i++)
-    {
-        line_info.line_offset = i;
-        ret = ioctl(fd, GPIO_GET_LINEINFO_IOCTL, &line_info);
-        if (ret == -1)
-        {
-            printf("Unable to get line info from offset %d: %s", i, strerror(errno));
-        }
-        else
-        {
-            printf("offset: %d, name: %s, consumer: %s. Flags:\t[%s]\t[%s]\t[%s]\t[%s]\t[%s]\n",
-                   i,
-                   line_info.name,
-                   line_info.consumer,
-                   (line_info.flags & GPIOLINE_FLAG_IS_OUT) ? "OUTPUT" : "INPUT",
-                   (line_info.flags & GPIOLINE_FLAG_ACTIVE_LOW) ? "ACTIVE_LOW" : "ACTIVE_HIGHT",
-                   (line_info.flags & GPIOLINE_FLAG_OPEN_DRAIN) ? "OPEN_DRAIN" : "...",
-                   (line_info.flags & GPIOLINE_FLAG_OPEN_SOURCE) ? "OPENSOURCE" : "...",
-                   (line_info.flags & GPIOLINE_FLAG_KERNEL) ? "KERNEL" : "");
-        }
-    }
-}
+//static void gpio_list(struct ioexpander_dev_s *dev)
+//{
+//    FAR struct linux_ioe_dev_s *priv = (FAR struct linux_ioe_dev_s *)dev;
+//    struct gpiochip_info info;
+//    struct gpioline_info line_info;
+//    int fd, ret;
+//    fd = priv->fd;
+//    if (fd < 0)
+//    {
+//        printf("Unabled to open %s: %s", priv->filename, strerror(errno));
+//        return;
+//    }
+//    ret = ioctl(fd, GPIO_GET_CHIPINFO_IOCTL, &info);
+//    if (ret == -1)
+//    {
+//        printf("Unable to get chip info from ioctl: %s", strerror(errno));
+//        close(fd);
+//        return;
+//    }
+//    printf("Chip name: %s\n", info.name);
+//    printf("Chip label: %s\n", info.label);
+//    printf("Number of lines: %d\n", info.lines);
+//
+//    for (int i = 0; i < info.lines; i++)
+//    {
+//        line_info.line_offset = i;
+//        ret = ioctl(fd, GPIO_GET_LINEINFO_IOCTL, &line_info);
+//        if (ret == -1)
+//        {
+//            printf("Unable to get line info from offset %d: %s", i, strerror(errno));
+//        }
+//        else
+//        {
+//            printf("offset: %d, name: %s, consumer: %s. Flags:\t[%s]\t[%s]\t[%s]\t[%s]\t[%s]\n",
+//                   i,
+//                   line_info.name,
+//                   line_info.consumer,
+//                   (line_info.flags & GPIOLINE_FLAG_IS_OUT) ? "OUTPUT" : "INPUT",
+//                   (line_info.flags & GPIOLINE_FLAG_ACTIVE_LOW) ? "ACTIVE_LOW" : "ACTIVE_HIGHT",
+//                   (line_info.flags & GPIOLINE_FLAG_OPEN_DRAIN) ? "OPEN_DRAIN" : "...",
+//                   (line_info.flags & GPIOLINE_FLAG_OPEN_SOURCE) ? "OPENSOURCE" : "...",
+//                   (line_info.flags & GPIOLINE_FLAG_KERNEL) ? "KERNEL" : "");
+//        }
+//    }
+//}
