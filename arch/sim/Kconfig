@@ -620,6 +620,18 @@ config SIM_IOEXPANDER_NAME
 		This is the name of the IOExpander device on the host implementation to
 		attach to the simulator driver.
 
+config IOEXPANDER_INT_NCALLBACKS
+	int "Max number of interrupt callbacks"
+	default 4
+	---help---
+		This is the maximum number of interrupt callbacks supported
+
+config IOEXPANDER_INT_POLLDELAY
+	int "Interrupt poll delay (used)"
+	default 500000
+	---help---
+		This microsecond delay defines the polling rate for missed interrupts.
+
 endif
 
 endif # ARCH_SIM

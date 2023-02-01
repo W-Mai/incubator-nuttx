@@ -196,9 +196,9 @@ ifeq ($(CONFIG_SIM_SPI_LINUX),y)
   HOSTSRCS += sim_linuxspi.c
 endif
 
-#ifeq ($(CONFIG_SIM_IOEXPANDER_LINUX),y)
-##  HOSTSRCS += sim_linuxioexpander.c
-#endif
+ifeq ($(CONFIG_SIM_IOEXPANDER_LINUX),y)
+  HOSTSRCS += sim_hostioexpander.c
+endif
 
 ifeq ($(CONFIG_RPTUN),y)
   CSRCS += sim_rptun.c
