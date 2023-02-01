@@ -28,6 +28,15 @@
 #include <errno.h>
 #include <zconf.h>
 #include <stdbool.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <linux/gpio.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/ioctl.h>
+
 
 #include "sim_ioexpander.h"
 
@@ -81,6 +90,9 @@ struct linux_ioe_dev_s
 {
     struct ioexpander_dev_s dev;       /* Nested structure to allow casting as
                                       * public GPIO expander. */
+    int fd;
+    FAR const char * filename;
+
     ioe_pinset_t inpins;               /* Pins select as inputs */
     ioe_pinset_t invert;               /* Pin value inversion */
     ioe_pinset_t outval;               /* Value of output pins */
@@ -370,6 +382,8 @@ static int linux_ioe_writepin(FAR struct ioexpander_dev_s *dev,
     {
         priv->outval &= ~((ioe_pinset_t)1 << pin);
     }
+
+
 
     return OK;
 }
@@ -830,11 +844,21 @@ static int ioe_dummy_multireadpin(FAR struct ioexpander_dev_s *dev,
  *   an ioexpander_dev_s instance on success, NULL on failure.
  *
  ****************************************************************************/
+static void gpio_list(struct ioexpander_dev_s *dev);
 
 FAR struct ioexpander_dev_s *sim_ioe_initialize(const char *filename)
 {
     FAR struct linux_ioe_dev_s *priv = &g_ioexpander;
-//    int ret;
+
+    priv->filename = filename;
+
+    priv->fd = open(priv->filename, O_RDONLY);
+    if (priv->fd < 0)
+    {
+        // TODO: raise error
+    }
+
+    gpio_list((struct ioexpander_dev_s *) priv);
 
     /* Initialize the device state structure */
 
@@ -854,4 +878,56 @@ FAR struct ioexpander_dev_s *sim_ioe_initialize(const char *filename)
 //    }
 
     return &priv->dev;
+}
+
+int sim_ioe_uninitialize(struct ioexpander_dev_s *dev)
+{
+    FAR struct linux_ioe_dev_s *priv = (FAR struct linux_ioe_dev_s *)dev;
+    return close(priv->fd);
+}
+
+static void gpio_list(struct ioexpander_dev_s *dev)
+{
+    FAR struct linux_ioe_dev_s *priv = (FAR struct linux_ioe_dev_s *)dev;
+    struct gpiochip_info info;
+    struct gpioline_info line_info;
+    int fd, ret;
+    fd = priv->fd;
+    if (fd < 0)
+    {
+        printf("Unabled to open %s: %s", priv->filename, strerror(errno));
+        return;
+    }
+    ret = ioctl(fd, GPIO_GET_CHIPINFO_IOCTL, &info);
+    if (ret == -1)
+    {
+        printf("Unable to get chip info from ioctl: %s", strerror(errno));
+        close(fd);
+        return;
+    }
+    printf("Chip name: %s\n", info.name);
+    printf("Chip label: %s\n", info.label);
+    printf("Number of lines: %d\n", info.lines);
+
+    for (int i = 0; i < info.lines; i++)
+    {
+        line_info.line_offset = i;
+        ret = ioctl(fd, GPIO_GET_LINEINFO_IOCTL, &line_info);
+        if (ret == -1)
+        {
+            printf("Unable to get line info from offset %d: %s", i, strerror(errno));
+        }
+        else
+        {
+            printf("offset: %d, name: %s, consumer: %s. Flags:\t[%s]\t[%s]\t[%s]\t[%s]\t[%s]\n",
+                   i,
+                   line_info.name,
+                   line_info.consumer,
+                   (line_info.flags & GPIOLINE_FLAG_IS_OUT) ? "OUTPUT" : "INPUT",
+                   (line_info.flags & GPIOLINE_FLAG_ACTIVE_LOW) ? "ACTIVE_LOW" : "ACTIVE_HIGHT",
+                   (line_info.flags & GPIOLINE_FLAG_OPEN_DRAIN) ? "OPEN_DRAIN" : "...",
+                   (line_info.flags & GPIOLINE_FLAG_OPEN_SOURCE) ? "OPENSOURCE" : "...",
+                   (line_info.flags & GPIOLINE_FLAG_KERNEL) ? "KERNEL" : "");
+        }
+    }
 }
