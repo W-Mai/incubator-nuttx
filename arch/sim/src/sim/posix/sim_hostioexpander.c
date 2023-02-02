@@ -53,10 +53,20 @@ int host_ioe_direction(int fd, uint8_t pin, int direction)
       case IOEXPANDER_DIRECTION_IN:
       case IOEXPANDER_DIRECTION_IN_PULLUP:
       case IOEXPANDER_DIRECTION_IN_PULLDOWN:
+        {
+          host_ioe_readpin(fd, pin, NULL);
+          break;
+        }
       case IOEXPANDER_DIRECTION_OUT:
       case IOEXPANDER_DIRECTION_OUT_OPENDRAIN:
+        {
+          host_ioe_writepin(fd, pin, 0);
+          break;
+        }
       default:break;
     }
+
+  return 0;
 }
 
 int host_ioe_writepin(int fd, uint8_t pin, bool value)
@@ -83,6 +93,7 @@ int host_ioe_writepin(int fd, uint8_t pin, bool value)
       return errno;
     }
 
+  close(rq.fd);
   return ret;
 }
 
@@ -93,11 +104,16 @@ int host_ioe_readpin(int fd, uint8_t pin, bool *value)
 
   int ret;
 
+  if (value == NULL)
+    {
+      return 0;
+    }
+
   rq.lineoffsets[0] = pin;
   rq.flags = GPIOHANDLE_REQUEST_INPUT;
   rq.lines = 1;
   ret = ioctl(fd, GPIO_GET_LINEHANDLE_IOCTL, &rq);
-  close(fd);
+
   if (ret == -1)
     {
       return errno;
@@ -110,5 +126,6 @@ int host_ioe_readpin(int fd, uint8_t pin, bool *value)
     }
 
   *value = data.values[0];
+  close(rq.fd);
   return ret;
 }
