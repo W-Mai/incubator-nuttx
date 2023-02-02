@@ -21,6 +21,7 @@
 
 #include <fcntl.h>
 
-int host_ioe_open(const char *filename) {
-    return open(filename, O_RDONLY);
+int host_ioe_open(const char *filename)
+{
+  return open(filename, O_RDONLY);
 }
