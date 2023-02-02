@@ -30,7 +30,6 @@
 
 #include "sim_internal.h"
 #include <nuttx/ioexpander/ioexpander.h>
-#include <nuttx/kmalloc.h>
 #include <nuttx/wdog.h>
 #include <nuttx/wqueue.h>
 
@@ -84,16 +83,16 @@ struct ioe_dev_s
     int            fd;
     FAR const char *file_name;
 
-    ioe_pinset_t inpins;   /* Pins select as inputs */
+    uint8_t      pindir[CONFIG_IOEXPANDER_NPINS];
     ioe_pinset_t invert;   /* Pin value inversion */
     ioe_pinset_t outval;   /* Value of output pins */
     ioe_pinset_t inval;    /* Simulated input register */
     ioe_pinset_t intenab;  /* Interrupt enable */
     ioe_pinset_t last;     /* Last pin inputs (for detection of
-                          * changes) */
+                            * changes) */
     ioe_pinset_t trigger;  /* Bit encoded: 0=level 1=edge */
     ioe_pinset_t level[2]; /* Bit encoded: 01=high/rising,
-                          * 10 low/falling, 11 both */
+                            * 10 low/falling, 11 both */
 
     struct wdog_s wdog; /* Timer used to poll for interrupt
                          * simulation */
@@ -193,39 +192,17 @@ static int ioe_direction(FAR struct ioexpander_dev_s *dev, uint8_t pin,
 {
   FAR struct ioe_dev_s *priv = (FAR struct ioe_dev_s *)dev;
 
-  if (direction != IOEXPANDER_DIRECTION_IN
-      && direction != IOEXPANDER_DIRECTION_OUT)
-    {
-      return -EINVAL;
-    }
-
   DEBUGASSERT(priv != NULL && pin < CONFIG_IOEXPANDER_NPINS);
 
     gpioinfo("pin=%u direction=%s\n",
              pin,
              (direction == IOEXPANDER_DIRECTION_IN) ? "IN" : "OUT");
 
+  priv->pindir[pin] = direction;
+
   /* Set the pin direction */
 
-  if (direction == IOEXPANDER_DIRECTION_IN)
-    {
-      /* Configure pin as input. */
-
-      priv->inpins |= ((ioe_pinset_t)1 << pin);
-    }
-  else /* if (direction == IOEXPANDER_DIRECTION_OUT) */
-    {
-      /* Configure pin as output.  If a bit in this register is cleared to
-       * 0, the corresponding port pin is enabled as an output.
-       *
-       * REVISIT: The value of output has not been selected!  This might
-       * put a glitch on the output.
-       */
-
-      priv->inpins &= ~((ioe_pinset_t)1 << pin);
-    }
-
-  return OK;
+  return host_ioe_direction(priv->fd, pin, direction);
 }
 
 /****************************************************************************
@@ -247,15 +224,12 @@ static int ioe_direction(FAR struct ioexpander_dev_s *dev, uint8_t pin,
  *
  ****************************************************************************/
 
-static int ioe_option(FAR
-                      struct ioexpander_dev_s *dev,
-                      uint8_t pin,
-                      int opt,
-                      FAR
-                      void *value)
+static int ioe_option(FAR struct ioexpander_dev_s *dev,
+                      uint8_t pin, int opt, FAR void *value)
 {
   FAR struct ioe_dev_s *priv = (FAR struct ioe_dev_s *)dev;
-  int                  ret   = -ENOSYS;
+
+  int ret = -ENOSYS;
 
   DEBUGASSERT(priv != NULL);
 
@@ -375,7 +349,9 @@ static int ioe_writepin(FAR struct ioexpander_dev_s *dev, uint8_t pin,
       priv->outval &= ~((ioe_pinset_t)1 << pin);
     }
 
-  return OK;
+  return host_ioe_writepin(
+    priv->fd, pin, (value ^ priv->invert) == 1
+  );
 }
 
 /****************************************************************************
@@ -400,7 +376,9 @@ static int ioe_readpin(FAR struct ioexpander_dev_s *dev, uint8_t pin,
                        FAR bool *value)
 {
   FAR struct ioe_dev_s *priv = (FAR struct ioe_dev_s *)dev;
-  ioe_pinset_t         inval;
+
+  ioe_pinset_t inval;
+  int          ret;
 
   DEBUGASSERT(priv != NULL && pin < CONFIG_IOEXPANDER_NPINS
               && value != NULL);
@@ -409,20 +387,14 @@ static int ioe_readpin(FAR struct ioexpander_dev_s *dev, uint8_t pin,
 
   /* Is this an output pin? */
 
-  if (((priv->inpins >> pin) & 1) != 0)
-    {
-      inval = priv->inval;
-    }
-  else
-    {
-      inval = priv->outval;
-    }
+  ret = host_ioe_readpin(priv->fd, pin, (bool *)&inval);
+  inval ^= priv->invert;
+  priv->inval = inval ?
+                priv->inval | (1 << pin) :
+                (priv->inval & ~(1 << pin));
+  *value = inval;
 
-  /* Return 0 or 1 to indicate the state of pin */
-
-  *value = ((((inval ^ priv->invert) >> pin) & 1) != 0);
-
-  return OK;
+  return ret;
 }
 
 /****************************************************************************
@@ -513,7 +485,7 @@ static int ioe_multireadpin(FAR struct ioexpander_dev_s *dev,
 
       /* Is this an output pin? */
 
-      if (((priv->inpins >> pin) & 1) != 0)
+      if (((priv->pindir >> pin) & 1) != 0)
         {
           inval = priv->inval;
         }
@@ -655,7 +627,7 @@ static ioe_pinset_t ioe_int_update(FAR struct ioe_dev_s *priv)
         {
           /* Yes, add the input pins to set of pins to toggle */
 
-          toggles |= (priv->cb[i].pinset & priv->inpins);
+          /* toggles |= (priv->cb[i].pinset & priv->pindir); */
         }
     }
 
@@ -871,4 +843,11 @@ FAR struct ioexpander_dev_s *sim_ioe_initialize(const char *filename)
     }
 
   return &priv->dev;
+}
+
+int sim_ioe_uninitialize(struct ioexpander_dev_s *dev)
+{
+  FAR struct ioe_dev_s *priv = &dev;
+
+  return host_ioe_close(priv->fd);
 }

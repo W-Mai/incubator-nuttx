@@ -20,8 +20,95 @@
 
 
 #include <fcntl.h>
+#include <unistd.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <linux/gpio.h>
+#include <sys/ioctl.h>
+#include <errno.h>
+#include "sim_internal.h"
+
+/* Pin definitions **********************************************************/
+
+#define IOEXPANDER_DIRECTION_IN            0  /* float */
+#define IOEXPANDER_DIRECTION_IN_PULLUP     1
+#define IOEXPANDER_DIRECTION_IN_PULLDOWN   2
+#define IOEXPANDER_DIRECTION_OUT           3  /* push-pull */
+#define IOEXPANDER_DIRECTION_OUT_OPENDRAIN 4
 
 int host_ioe_open(const char *filename)
 {
   return open(filename, O_RDONLY);
+}
+
+int host_ioe_close(int fd)
+{
+  return close(fd);
+}
+
+int host_ioe_direction(int fd, uint8_t pin, int direction)
+{
+  switch (direction)
+    {
+      case IOEXPANDER_DIRECTION_IN:
+      case IOEXPANDER_DIRECTION_IN_PULLUP:
+      case IOEXPANDER_DIRECTION_IN_PULLDOWN:
+      case IOEXPANDER_DIRECTION_OUT:
+      case IOEXPANDER_DIRECTION_OUT_OPENDRAIN:
+      default:break;
+    }
+}
+
+int host_ioe_writepin(int fd, uint8_t pin, bool value)
+{
+  struct gpiohandle_request rq;
+  struct gpiohandle_data    data;
+
+  int ret;
+
+  rq.lineoffsets[0] = pin;
+  rq.flags = GPIOHANDLE_REQUEST_OUTPUT;
+  rq.lines = 1;
+  ret = ioctl(fd, GPIO_GET_LINEHANDLE_IOCTL, &rq);
+
+  if (ret == -1)
+    {
+      return errno;
+    }
+  data.values[0] = value;
+  ret = ioctl(rq.fd, GPIOHANDLE_SET_LINE_VALUES_IOCTL, &data);
+
+  if (ret == -1)
+    {
+      return errno;
+    }
+
+  return ret;
+}
+
+int host_ioe_readpin(int fd, uint8_t pin, bool *value)
+{
+  struct gpiohandle_request rq;
+  struct gpiohandle_data    data;
+
+  int ret;
+
+  rq.lineoffsets[0] = pin;
+  rq.flags = GPIOHANDLE_REQUEST_INPUT;
+  rq.lines = 1;
+  ret = ioctl(fd, GPIO_GET_LINEHANDLE_IOCTL, &rq);
+  close(fd);
+  if (ret == -1)
+    {
+      return errno;
+    }
+
+  ret = ioctl(rq.fd, GPIOHANDLE_GET_LINE_VALUES_IOCTL, &data);
+  if (ret == -1)
+    {
+      return errno;
+    }
+
+  *value = data.values[0];
+  return ret;
 }

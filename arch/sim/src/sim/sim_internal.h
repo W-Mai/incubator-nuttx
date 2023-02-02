@@ -372,7 +372,6 @@ struct spi_dev_s *sim_spi_initialize(const char *filename);
 int sim_spi_uninitialize(struct spi_dev_s *dev);
 #endif
 
-
 #ifdef CONFIG_SIM_IOEXPANDER
 
 /* sim_ioexpander.c ********************************************************/
@@ -383,6 +382,10 @@ int sim_ioe_uninitialize(struct ioexpander_dev_s *dev);
 /* sim_hostioexpander.c ********************************************************/
 
 int host_ioe_open(const char *filename);
+int host_ioe_close(int fd);
+int host_ioe_direction(int fd, uint8_t pin, int direction);
+int host_ioe_writepin(int fd, uint8_t pin, bool value);
+int host_ioe_readpin(int fd, uint8_t pin, bool *value);
 
 #endif
 
