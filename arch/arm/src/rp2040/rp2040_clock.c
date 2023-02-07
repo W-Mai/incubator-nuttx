@@ -182,6 +182,10 @@ bool rp2040_clock_configure(int clk_index,
 
 void clocks_init(void)
 {
+  /* vreg_set_voltage(VREG_VOLTAGE_1_05) */
+
+  modbits_reg32(0b10100000, 0x000000f0, RP2040_VREG_AND_CHIP_RESET_BASE);
+
   /* Start tick in watchdog */
 
   putreg32((BOARD_XOSC_FREQ / MHZ) | RP2040_WATCHDOG_TICK_ENABLE,
@@ -210,7 +214,7 @@ void clocks_init(void)
 
   /* Configure PLLs
    *                   REF     FBDIV VCO     POSTDIV
-   * PLL SYS: 12 / 1 = 12MHz * 125 = 1500MHZ / 6 / 2 = 125MHz
+   * PLL SYS: 12 / 1 = 12MHz * 125 = 1500MHZ / 6 / 1 = 250MHz
    * PLL USB: 12 / 1 = 12MHz * 40  = 480 MHz / 5 / 2 =  48MHz
    */
 
@@ -222,7 +226,7 @@ void clocks_init(void)
          (RP2040_RESETS_RESET_PLL_SYS | RP2040_RESETS_RESET_PLL_USB))
     ;
 
-  rp2040_pll_init(RP2040_PLL_SYS_BASE, 1, 1500 * MHZ, 6, 2);
+  rp2040_pll_init(RP2040_PLL_SYS_BASE, 1, 1500 * MHZ, 6, 1);
   rp2040_pll_init(RP2040_PLL_USB_BASE, 1, 480 * MHZ, 5, 2);
 
   /* Configure clocks */
@@ -235,7 +239,7 @@ void clocks_init(void)
                          BOARD_XOSC_FREQ,
                          BOARD_REF_FREQ);
 
-  /* CLK SYS = PLL SYS (125MHz) / 1 = 125MHz */
+  /* CLK SYS = PLL SYS (250MHz) / 1 = 250MHz */
 
   rp2040_clock_configure(RP2040_CLOCKS_NDX_SYS,
                          RP2040_CLOCKS_CLK_SYS_CTRL_SRC_CLKSRC_CLK_SYS_AUX,
