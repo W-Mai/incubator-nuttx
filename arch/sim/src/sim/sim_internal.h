@@ -378,6 +378,7 @@ int sim_spi_uninitialize(struct spi_dev_s *dev);
 
 struct ioexpander_dev_s *sim_ioe_initialize(const char *filename);
 int sim_ioe_uninitialize(struct ioexpander_dev_s *dev);
+void ioe_interrupt_work(void);
 
 /* sim_hostioexpander.c ********************************************************/
 

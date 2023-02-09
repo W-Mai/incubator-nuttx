@@ -59,6 +59,22 @@
 #define IOE_EDGE_BOTH(d, p)                                                 \
   (IOE_LEVEL_RISING(d, p) && IOE_LEVEL_FALLING(d, p))
 
+#if CONFIG_IOEXPANDER_NPINS <= 64
+#define IOE_GET_PIN_INDEX(pinset)         \
+  ({                                      \
+  ioe_pinset_t __pinset = pinset;         \
+  int __pin = 0;                          \
+  while(!((__pinset) & 1))                \
+    {                                     \
+      (__pinset) >>= 1;                   \
+      __pin++;                            \
+    }                                     \
+  __pin;                                  \
+  })
+#else
+#define IOE_GET_PIN_INDEX(pinset) (pinset)
+#endif
+
 /****************************************************************************
  * Private Types
  ****************************************************************************/
@@ -133,8 +149,6 @@ static int ioe_detach(FAR struct ioexpander_dev_s *dev, FAR void *handle);
 #endif
 
 static ioe_pinset_t ioe_int_update(FAR struct ioe_dev_s *priv);
-static void ioe_interrupt_work(void *arg);
-static void ioe_interrupt(wdparm_t arg);
 
 /****************************************************************************
  * Private Data
@@ -194,9 +208,9 @@ static int ioe_direction(FAR struct ioexpander_dev_s *dev, uint8_t pin,
 
   DEBUGASSERT(priv != NULL && pin < CONFIG_IOEXPANDER_NPINS);
 
-    gpioinfo("pin=%u direction=%s\n",
-             pin,
-             (direction == IOEXPANDER_DIRECTION_IN) ? "IN" : "OUT");
+  gpioinfo("pin=%u direction=%s\n",
+           pin,
+           (direction == IOEXPANDER_DIRECTION_IN) ? "IN" : "OUT");
 
   priv->pindir[pin] = direction;
 
@@ -233,7 +247,7 @@ static int ioe_option(FAR struct ioexpander_dev_s *dev,
 
   DEBUGASSERT(priv != NULL);
 
-    gpioinfo("pin=%u option=%u\n", pin, opt);
+  gpioinfo("pin=%u option=%u\n", pin, opt);
 
   /* Check for pin polarity inversion.  The Polarity Inversion Register
    * allows polarity inversion of pins defined as inputs by the
@@ -263,46 +277,62 @@ static int ioe_option(FAR struct ioexpander_dev_s *dev,
       ret = OK;
       switch ((uintptr_t)value)
         {
-      case IOEXPANDER_VAL_HIGH: /* Interrupt on high level */
-        priv->intenab |= bit;
-          priv->trigger &= ~bit;
-          priv->level[0] |= bit;
-          priv->level[1] &= ~bit;
-          break;
+          case IOEXPANDER_VAL_HIGH: /* Interrupt on high level */
+            {
+              priv->intenab |= bit;
+              priv->trigger &= ~bit;
+              priv->level[0] |= bit;
+              priv->level[1] &= ~bit;
+              break;
+            }
 
-      case IOEXPANDER_VAL_LOW: /* Interrupt on low level */
-        priv->intenab |= bit;
-          priv->trigger &= ~bit;
-          priv->level[0] &= ~bit;
-          priv->level[1] |= bit;
-          break;
+          case IOEXPANDER_VAL_LOW: /* Interrupt on low level */
+            {
+              priv->intenab |= bit;
+              priv->trigger &= ~bit;
+              priv->level[0] &= ~bit;
+              priv->level[1] |= bit;
+              break;
+            }
 
-      case IOEXPANDER_VAL_RISING: /* Interrupt on rising edge */
-        priv->intenab |= bit;
-          priv->trigger |= bit;
-          priv->level[0] |= bit;
-          priv->level[1] &= ~bit;
-          break;
+          case IOEXPANDER_VAL_RISING: /* Interrupt on rising edge */
+            {
+              priv->intenab |= bit;
+              priv->trigger |= bit;
+              priv->level[0] |= bit;
+              priv->level[1] &= ~bit;
+              break;
+            }
 
-      case IOEXPANDER_VAL_FALLING: /* Interrupt on falling edge */
-        priv->intenab |= bit;
-          priv->trigger |= bit;
-          priv->level[0] &= ~bit;
-          priv->level[1] |= bit;
-          break;
+          case IOEXPANDER_VAL_FALLING: /* Interrupt on falling edge */
+            {
+              priv->intenab |= bit;
+              priv->trigger |= bit;
+              priv->level[0] &= ~bit;
+              priv->level[1] |= bit;
+              break;
+            }
 
-      case IOEXPANDER_VAL_BOTH: /* Interrupt on both edges */
-        priv->intenab |= bit;
-          priv->trigger |= bit;
-          priv->level[0] |= bit;
-          priv->level[1] |= bit;
-          break;
+          case IOEXPANDER_VAL_BOTH: /* Interrupt on both edges */
+            {
+              priv->intenab |= bit;
+              priv->trigger |= bit;
+              priv->level[0] |= bit;
+              priv->level[1] |= bit;
+              break;
+            }
 
-      case IOEXPANDER_VAL_DISABLE:priv->trigger &= ~bit;
-          break;
+          case IOEXPANDER_VAL_DISABLE:
+            {
+              priv->trigger &= ~bit;
+              break;
+            }
 
-      default:ret = -EINVAL;
-          break;
+          default:
+            {
+              ret = -EINVAL;
+              break;
+            }
         }
     }
 
@@ -333,12 +363,7 @@ static int ioe_writepin(FAR struct ioexpander_dev_s *dev, uint8_t pin,
 
   DEBUGASSERT(priv != NULL && pin < CONFIG_IOEXPANDER_NPINS);
 
-    gpioinfo("pin=%u value=%u\n", pin, (unsigned int)value);
-
-  /* Set output pins default value (before configuring it as output) The
-   * Output Port Register shows the outgoing logic levels of the pins
-   * defined as outputs by the Configuration Register.
-   */
+  gpioinfo("pin=%u value=%u\n", pin, (unsigned int)value);
 
   if (value == (((priv->invert >> pin) & 1) == 0))
     {
@@ -377,22 +402,23 @@ static int ioe_readpin(FAR struct ioexpander_dev_s *dev, uint8_t pin,
 {
   FAR struct ioe_dev_s *priv = (FAR struct ioe_dev_s *)dev;
 
-  ioe_pinset_t inval;
-  int          ret;
+  bool                 inval = false;
+  int                  ret;
 
   DEBUGASSERT(priv != NULL && pin < CONFIG_IOEXPANDER_NPINS
               && value != NULL);
 
-    gpioinfo("pin=%u\n", pin);
-
-  /* Is this an output pin? */
+  gpioinfo("pin=%u\n", pin);
 
   ret = host_ioe_readpin(priv->fd, pin, (bool *)&inval);
-  inval ^= priv->invert;
+
   priv->inval = inval ?
                 priv->inval | (1 << pin) :
                 (priv->inval & ~(1 << pin));
-  *value = inval;
+  if (value != NULL)
+    {
+      *value = inval;
+    }
 
   return ret;
 }
@@ -526,24 +552,21 @@ static FAR void *ioe_attach(FAR struct ioexpander_dev_s *dev,
                             ioe_pinset_t pinset, ioe_callback_t callback,
                             FAR void *arg)
 {
-  FAR struct ioe_dev_s *priv   = (FAR struct ioe_dev_s *)dev;
-  FAR void             *handle = NULL;
-  int                  i;
+  FAR struct ioe_dev_s *priv = (FAR struct ioe_dev_s *)dev;
 
-    gpioinfo("pinset=%lx callback=%p arg=%p\n", (unsigned long)pinset,
-             callback,
-             arg);
+  FAR void *handle = NULL;
+  int      i;
+
+  gpioinfo("pinset=%lx callback=%p arg=%p\n", (unsigned long)pinset,
+           callback,
+           arg);
 
   /* Find and available in entry in the callback table */
 
   for (i = 0; i < CONFIG_IOEXPANDER_INT_NCALLBACKS; i++)
     {
-      /* Is this entry available (i.e., no callback attached) */
-
       if (priv->cb[i].cbfunc == NULL)
         {
-          /* Yes.. use this entry */
-
           priv->cb[i].pinset = pinset;
           priv->cb[i].cbfunc = callback;
           priv->cb[i].cbarg  = arg;
@@ -579,13 +602,13 @@ static int ioe_detach(FAR struct ioexpander_dev_s *dev, FAR void *handle)
   FAR struct ioe_dev_s      *priv = (FAR struct ioe_dev_s *)dev;
   FAR struct ioe_callback_s *cb   = (FAR struct ioe_callback_s *)handle;
 
-    gpioinfo("handle=%p\n", handle);
+  gpioinfo("handle=%p\n", handle);
 
   DEBUGASSERT(priv != NULL && cb != NULL);
-  DEBUGASSERT((uintptr_t)cb >= (uintptr_t)&priv->cb[0]
-              && (uintptr_t)cb
-                 <= (uintptr_t)&priv->cb[CONFIG_IOEXPANDER_INT_NCALLBACKS
-                                         - 1]);
+  DEBUGASSERT(
+    (uintptr_t)cb >= (uintptr_t)&priv->cb[0]
+    && (uintptr_t)cb
+       <= (uintptr_t)&priv->cb[CONFIG_IOEXPANDER_INT_NCALLBACKS - 1]);
   UNUSED(priv);
 
   cb->pinset = 0;
@@ -625,13 +648,12 @@ static ioe_pinset_t ioe_int_update(FAR struct ioe_dev_s *priv)
 
       if (priv->cb[i].cbfunc != NULL)
         {
-          /* Yes, add the input pins to set of pins to toggle */
-
-          /* toggles |= (priv->cb[i].pinset & priv->pindir); */
+          ioe_readpin(
+            (struct ioexpander_dev_s *)priv,
+            IOE_GET_PIN_INDEX(priv->cb[i].pinset), NULL
+          );
         }
     }
-
-  priv->inval = (priv->inval & ~toggles) | (~priv->inval & toggles);
 
   /* Check the changed bits from last read (Only applies to input pins) */
 
@@ -639,11 +661,11 @@ static ioe_pinset_t ioe_int_update(FAR struct ioe_dev_s *priv)
   diff  = priv->last ^ input;
   if (diff != 0)
     {
-        gpioinfo("toggles=%lx inval=%lx last=%lx diff=%lx\n",
-                 (unsigned long)toggles,
-                 (unsigned long)priv->inval,
-                 (unsigned long)priv->last,
-                 (unsigned long)diff);
+      gpioinfo("toggles=%lx inval=%lx last=%lx diff=%lx\n",
+               (unsigned long)toggles,
+               (unsigned long)priv->inval,
+               (unsigned long)priv->last,
+               (unsigned long)diff);
     }
 
   priv->last = input;
@@ -705,9 +727,9 @@ static ioe_pinset_t ioe_int_update(FAR struct ioe_dev_s *priv)
  *
  ****************************************************************************/
 
-static void ioe_interrupt_work(void *arg)
+void ioe_interrupt_work(void)
 {
-  FAR struct ioe_dev_s *priv = (FAR struct ioe_dev_s *)arg;
+  FAR struct ioe_dev_s *priv = (FAR struct ioe_dev_s *)&g_ioexpander;
 
   ioe_pinset_t intstat;
   int          ret;
@@ -720,7 +742,7 @@ static void ioe_interrupt_work(void *arg)
   intstat = ioe_int_update(priv);
   if (intstat != 0)
     {
-        gpioinfo("intstat=%lx\n", (unsigned long)intstat);
+      gpioinfo("intstat=%lx\n", (unsigned long)intstat);
 
       /* Perform pin interrupt callbacks */
 
@@ -743,55 +765,9 @@ static void ioe_interrupt_work(void *arg)
         }
     }
 
-  /* Re-start the poll timer */
-
-  ret = wd_start(
-    &priv->wdog, IOE_POLLDELAY,
-    ioe_interrupt, (wdparm_t)priv
-  );
   if (ret < 0)
     {
-        gpioerr("ERROR: Failed to start poll timer\n");
-    }
-}
-
-/****************************************************************************
- * Name: ioe_interrupt
- *
- * Description:
- *   The poll timer has expired; check for missed interrupts
- *
- * Input Parameters:
- *   Standard wdog expiration arguments.
- *
- ****************************************************************************/
-
-static void ioe_interrupt(wdparm_t arg)
-{
-  FAR struct ioe_dev_s *priv;
-
-  priv = (FAR struct ioe_dev_s *)arg;
-  DEBUGASSERT(priv != NULL);
-
-  /* Defer interrupt processing to the worker thread.  This is not only
-   * much kinder in the use of system resources but is probably necessary
-   * to access the I/O expander device.
-   *
-   * Notice that further GPIO interrupts are disabled until the work is
-   * actually performed.  This is to prevent overrun of the worker thread.
-   * Interrupts are re-enabled in ioe_interrupt_work() when the work is
-   * completed.
-   */
-
-  if (work_available(&priv->work))
-    {
-      /* Schedule interrupt related work on the high priority worker
-       * thread.
-       */
-
-      work_queue(
-        HPWORK, &priv->work, ioe_interrupt_work, (FAR void *)priv, 0
-      );
+      gpioerr("ERROR: Failed to start poll timer\n");
     }
 }
 
@@ -821,7 +797,10 @@ FAR struct ioexpander_dev_s *sim_ioe_initialize(const char *filename)
   priv->file_name = filename;
   priv->fd        = host_ioe_open(priv->file_name);
 
-  int ret;
+  if (priv->fd < 0)
+    {
+      return NULL;
+    }
 
   /* Initialize the device state structure */
 
@@ -832,15 +811,6 @@ FAR struct ioexpander_dev_s *sim_ioe_initialize(const char *filename)
   priv->trigger = PINSET_ALL;   /* All edge triggered */
   priv->level[0] = PINSET_ALL;  /* All rising edge */
   priv->level[1] = PINSET_ALL;  /* All falling edge */
-
-  ret = wd_start(
-    &priv->wdog, IOE_POLLDELAY,
-    ioe_interrupt, (wdparm_t)priv
-  );
-  if (ret < 0)
-    {
-        gpioerr("ERROR: Failed to start poll timer\n");
-    }
 
   return &priv->dev;
 }

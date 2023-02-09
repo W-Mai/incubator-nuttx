@@ -213,6 +213,10 @@ static int sim_loop_task(int argc, char **argv)
       foc_dummy_update();
 #endif
 
+#ifdef CONFIG_SIM_IOEXPANDER
+      ioe_interrupt_work();
+#endif
+
       sched_unlock();
       up_irq_restore(flags);
 

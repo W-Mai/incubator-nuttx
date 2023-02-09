@@ -46,15 +46,21 @@
  *   Initialize simulated GPIO expander for use with /apps/examples/gpio
  *
  ****************************************************************************/
+int ioe_callback(FAR struct ioexpander_dev_s *dev,
+                 ioe_pinset_t pinset, FAR void *arg)
+{
+  return 0;
+}
 
 int sim_gpio_initialize(void)
 {
   /* Get an instance of the simulated I/O expander */
 
-  struct ioexpander_dev_s *ioe = sim_ioe_initialize(CONFIG_SIM_IOEXPANDER_NAME);
+  struct ioexpander_dev_s
+    *ioe = sim_ioe_initialize(CONFIG_SIM_IOEXPANDER_NAME);
   if (ioe == NULL)
     {
-      gpioerr("ERROR: sim_ioe_initialize failed\n");
+        gpioerr("ERROR: sim_ioe_initialize failed\n");
       return -ENOMEM;
     }
 
@@ -87,6 +93,7 @@ int sim_gpio_initialize(void)
                   (void *)IOEXPANDER_VAL_BOTH);
   gpio_lower_half(ioe, 2, GPIO_INTERRUPT_PIN, 2);
 
+
   /* Pin 3: a non-inverted, level interrupting pin */
 
   IOEXP_SETDIRECTION(ioe, 3, IOEXPANDER_DIRECTION_IN);
@@ -98,4 +105,5 @@ int sim_gpio_initialize(void)
 
   return 0;
 }
+
 #endif /* CONFIG_EXAMPLES_GPIO && CONFIG_GPIO_LOWER_HALF */
